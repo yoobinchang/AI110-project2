@@ -5,7 +5,40 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+
 - What classes did you include, and what responsibilities did you assign to each?
+
+**0. Owner (Add a user)**
+# Attributes
+name: str
+daily_minutes: int
+pets: list[Pet]
+# Methods:
+
+**1. Pet (Add a pet)**
+# Attributes:
+name: str
+species: str
+# Methods:
+add_task(task: Task)
+
+2. Task (Add a task)
+# Attributes:
+name: str
+duration: int
+priority: Enum Priority - LOW / MEDIUM / HIGH
+# Methods:
+edit(name=None, duration=None, priority=None) - Optional edits
+
+**3. Scheduler (Logic - Generate a schedule)**
+# Methods:
+generate(owner: Owner) -> Schedule
+
+**4. Schedule (Result - Generate a schedule)**
+# Attributes:
+items: list[Task], total_minutes: int
+# Methods:
+display() -> str
 
 **b. Design changes**
 
