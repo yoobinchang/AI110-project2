@@ -5,24 +5,24 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
-
 - What classes did you include, and what responsibilities did you assign to each?
 
-**0. Owner (Add a user)**
+**Owner (Add a user)**
 # Attributes
 name: str
 daily_minutes: int
 pets: list[Pet]
 # Methods:
+add_Pet(pet: Pet)
 
-**1. Pet (Add a pet)**
+**Pet (Add a pet)**
 # Attributes:
 name: str
 species: str
 # Methods:
 add_task(task: Task)
 
-2. Task (Add a task)
+**Task (Add a task)**
 # Attributes:
 name: str
 duration: int
@@ -30,11 +30,11 @@ priority: Enum Priority - LOW / MEDIUM / HIGH
 # Methods:
 edit(name=None, duration=None, priority=None) - Optional edits
 
-**3. Scheduler (Logic - Generate a schedule)**
+**Scheduler (Logic - Generate a schedule)**
 # Methods:
 generate(owner: Owner) -> Schedule
 
-**4. Schedule (Result - Generate a schedule)**
+**Schedule (Result - Generate a schedule)**
 # Attributes:
 items: list[Task], total_minutes: int
 # Methods:
@@ -44,6 +44,10 @@ display() -> str
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+No I did not change the design.
+
+The agent suggested changing the relationship between Pet and Task bidirectional since it is useful for the back-referencing, but I chose to keep the first version for clearer ownership and clearer design.
 
 ---
 
