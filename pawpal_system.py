@@ -5,6 +5,8 @@ Data classes: Owner, Pet, Task (+ Priority enum).
 Logic class:  Scheduler -> produces a Schedule.
 """
 
+# Treat type hints as strings so classes can reference each other before
+# they are defined (e.g. Task hints "Pet" while Pet is defined further down).
 from __future__ import annotations
 
 from enum import Enum
@@ -27,6 +29,7 @@ class Task:
         frequency: str = "daily",
         completed: bool = False,
     ):
+        """Create a care task with a duration, priority, and frequency."""
         self.name: str = name
         self.duration: int = duration          # minutes
         self.priority: Priority = priority
@@ -52,9 +55,11 @@ class Task:
             self.frequency = frequency
 
     def mark_complete(self) -> None:
+        """Mark this task as done so the scheduler skips it."""
         self.completed = True
 
     def __repr__(self) -> str:
+        """Return a short developer-friendly representation."""
         return f"Task({self.name!r}, {self.duration}min, {self.priority.name})"
 
 
@@ -62,15 +67,18 @@ class Pet:
     """Stores pet details and its list of Tasks."""
 
     def __init__(self, name: str, species: str):
+        """Create a pet with a name and species and an empty task list."""
         self.name: str = name
         self.species: str = species
         self.tasks: list[Task] = []
 
     def add_task(self, task: Task) -> None:
+        """Attach a task to this pet and link the task back to it."""
         task.pet = self            # keep both sides of the link in sync
         self.tasks.append(task)
 
     def __repr__(self) -> str:
+        """Return a short developer-friendly representation."""
         return f"Pet({self.name!r}, {self.species!r})"
 
 
@@ -78,11 +86,13 @@ class Owner:
     """Manages multiple Pets and provides access to all their tasks."""
 
     def __init__(self, name: str, daily_minutes: int):
+        """Create an owner with a daily time budget and no pets yet."""
         self.name: str = name
         self.daily_minutes: int = daily_minutes
         self.pets: list[Pet] = []
 
     def add_pet(self, pet: Pet) -> None:
+        """Register a pet with this owner."""
         self.pets.append(pet)
 
     def all_tasks(self) -> list[Task]:
@@ -99,14 +109,17 @@ class Schedule:
     START_MINUTE = 8 * 60  # plan starts at 08:00
 
     def __init__(self):
+        """Create an empty schedule with no tasks and zero total time."""
         self.items: list[Task] = []
         self.total_minutes: int = 0
 
     def add(self, task: Task) -> None:
+        """Append a task to the plan and update the running total time."""
         self.items.append(task)
         self.total_minutes += task.duration
 
     def display(self) -> str:
+        """Return the plan as text with a clock time and pet for each task."""
         if not self.items:
             return "No tasks scheduled."
 
@@ -128,6 +141,7 @@ class Scheduler:
     """The brain: retrieves, organizes, and selects Tasks across Pets."""
 
     def generate(self, owner: Owner) -> Schedule:
+        """Build a plan: incomplete tasks by priority, fit within the budget."""
         schedule = Schedule()
 
         # 1. retrieve all incomplete tasks across every pet
