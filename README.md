@@ -72,14 +72,60 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+Beyond the basic greedy plan, PawPal+ adds four scheduling features. All of them live in `pawpal_system.py`.
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Sorting by time | `Scheduler.sort_by_time()` | Orders tasks by `start_time`, earliest first |
+| Filtering | `Scheduler.filter_tasks()` | By pet name and/or completion status |
+| Conflict detection | `Scheduler.detect_conflicts()` | Warns on overlapping time slots (never crashes) |
+| Recurring tasks | `Task.mark_complete()` + `Task.next_due_date()` | Daily/weekly tasks respawn on completion |
+
+### Sorting behavior — `Scheduler.sort_by_time()`
+
+Returns a new list of tasks ordered by their `start_time` (an `"HH:MM"` string),
+earliest first. It sorts on the shared `_time_key()` helper, which converts
+`"HH:MM"` into minutes-of-day so the comparison is **numeric** — this is why
+`"9:00"` correctly sorts *before* `"10:00"` (a plain string sort would not).
+Tasks with no `start_time` are pushed to the end. The input list is left
+unchanged. `Schedule.display()` uses the same key so the printed plan places each
+task at its own chosen time instead of repacking from 08:00.
+
+### Filtering behavior — `Scheduler.filter_tasks()`
+
+```python
+scheduler.filter_tasks(tasks, completed=False)              # only unfinished
+scheduler.filter_tasks(tasks, pet_name="Zimba")            # only one pet
+scheduler.filter_tasks(tasks, pet_name="Zimba", completed=False)  # both (AND)
+```
+
+Each filter is optional (`None` = "don't filter on this"). A task is kept only if
+it passes **every** active filter, so filters combine with AND logic. Returns a
+new list, so filters chain cleanly into `sort_by_time()`.
+
+### Conflict detection logic — `Scheduler.detect_conflicts()`
+
+Each task occupies the interval `[start, start + duration)`. Two tasks conflict
+when their intervals overlap. The method returns a list of human-readable warning
+strings (empty if there are none) and **never raises** — tasks with a missing or
+invalid `start_time` are simply skipped. It distinguishes a same-pet conflict
+("Ari can't do two things at once") from a cross-pet one ("you can't be with Ari
+and Zimba at the same time"). For efficiency the timed tasks are sorted by start
+time so the inner scan stops early once a later task starts after the current one
+ends, keeping the common case close to O(n log n). `Scheduler.generate()` runs
+this automatically and stores the result in `Schedule.warnings`, which
+`Schedule.display()` prints under the plan.
+
+### Recurring task logic — `Task.mark_complete()` + `Task.next_due_date()`
+
+When a `daily` or `weekly` task is marked complete, `mark_complete()` creates the
+next occurrence automatically: a fresh `Task` with the same details,
+`completed=False`, and a new due date, attached to the same pet. The new date is
+computed by `next_due_date()` using `datetime.timedelta` (`+1` day for daily,
+`+7` for weekly), which handles month-ends and leap years correctly (e.g.
+`2024-01-31` → `2024-02-01`). The `RECURRENCE_DAYS` map defines which frequencies
+repeat; non-recurring tasks (e.g. `"once a month"`) return `None` and spawn
+nothing.
 
 ## 📸 Demo Walkthrough
 

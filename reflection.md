@@ -63,6 +63,10 @@ The agent suggested changing the relationship between Pet and Task bidirectional
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+**Warn about conflicts instead of auto-resolving them**
+When two tasks overlap in time, the scheduler warns the owner instead of moving one of them. `display()` keeps every task at the exact `start_time` the owner chose, and `detect_conflicts()` just adds a message like "Ari can't do two things at once." The tradeoff is that the plan can still contain an overlap the program didn't fix. That's reasonable here because the owner knows things the program doesn't, which task can actually move, or whether they have help, and
+auto-repacking could quietly shift a task they pinned on purpose (like medication at 08:00). Warning instead of blocking keeps the owner in control while still catching the mistake.
+
 ---
 
 ## 3. AI Collaboration

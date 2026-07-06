@@ -1,6 +1,15 @@
 import streamlit as st
 
+from pawpal_system import Owner, Pet, Task, Scheduler, Priority
+
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
+
+# st.session_state works like a dictionary that survives every re-run.
+# Store the Owner in it ONCE so pets/tasks persist as you navigate the app.
+if "owner" not in st.session_state:
+    st.session_state["owner"] = Owner("Jordan", 120)
+
+owner = st.session_state["owner"]  # the persistent Owner; reuse it everywhere
 
 st.title("🐾 PawPal+")
 
@@ -38,51 +47,65 @@ At minimum, your system should:
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
-owner_name = st.text_input("Owner name", value="Jordan")
+# --- Owner settings ---
+st.subheader("Owner")
+owner.name = st.text_input("Owner name", value=owner.name)
+owner.daily_minutes = st.number_input(
+    "Daily time budget (minutes)", min_value=1, max_value=1440, value=owner.daily_minutes
+)
+
+st.divider()
+
+# --- Add a pet: UI collects input -> Owner.add_pet stores it ---
+st.subheader("Add a pet")
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
 
+if st.button("Add pet"):
+    owner.add_pet(Pet(pet_name, species))
+    st.success(f"Added {pet_name}.")
+
+st.divider()
+
+# --- Add a task: UI collects input -> Pet.add_task stores it ---
 st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+PRIORITY_MAP = {"low": Priority.LOW, "medium": Priority.MEDIUM, "high": Priority.HIGH}
 
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    task_title = st.text_input("Task title", value="Morning walk")
-with col2:
-    duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
-with col3:
-    priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
-
-if st.button("Add task"):
-    st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
-    )
-
-if st.session_state.tasks:
-    st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+if not owner.pets:
+    st.info("Add a pet first, then you can add tasks.")
 else:
-    st.info("No tasks yet. Add one above.")
+    pet_names = [pet.name for pet in owner.pets]
+    chosen = st.selectbox("Which pet?", pet_names)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        task_title = st.text_input("Task title", value="Morning walk")
+    with col2:
+        duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
+    with col3:
+        priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
+
+    if st.button("Add task"):
+        pet = owner.pets[pet_names.index(chosen)]
+        pet.add_task(Task(task_title, int(duration), PRIORITY_MAP[priority]))
+        st.success(f"Added '{task_title}' to {chosen}.")
+
+# --- Show current pets & tasks (below the buttons so new items appear) ---
+if owner.pets:
+    st.write("Current pets & tasks:")
+    for pet in owner.pets:
+        st.markdown(f"**{pet.name}** ({pet.species}) — {len(pet.tasks)} task(s)")
+        for task in pet.tasks:
+            st.write(f"- {task.name} ({task.duration} min) [{task.priority.name.lower()}]")
+else:
+    st.info("No pets yet. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Calls Scheduler.generate() on your owner and shows the plan.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+    schedule = Scheduler().generate(owner)   # the scheduling logic
+    st.text(f"Daily plan for {owner.name} (budget: {owner.daily_minutes} min):\n")
+    st.text(schedule.display())
