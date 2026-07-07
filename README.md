@@ -58,7 +58,7 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest
 
 # Run with coverage:
 pytest --cov
@@ -67,8 +67,54 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform darwin -- Python 3.14.0, pytest-9.0.3, pluggy-1.6.0
+rootdir: .../ai110_project_2/AI110-project2
+plugins: anyio-4.13.0
+collected 32 items
+
+tests/test_pawpal.py::test_mark_complete PASSED                          [  3%]
+tests/test_pawpal.py::test_mark_complete_spawns_next_daily PASSED        [  6%]
+tests/test_pawpal.py::test_mark_complete_spawns_next_weekly PASSED       [  9%]
+tests/test_pawpal.py::test_mark_complete_non_recurring PASSED            [ 12%]
+tests/test_pawpal.py::test_spawned_task_inherits_fields_but_resets_completed PASSED [ 15%]
+tests/test_pawpal.py::test_next_due_date_defaults_to_today PASSED        [ 18%]
+tests/test_pawpal.py::test_mark_complete_orphan_task_no_pet PASSED       [ 21%]
+tests/test_pawpal.py::test_mark_complete_chains PASSED                   [ 25%]
+tests/test_pawpal.py::test_add_task_increases_count PASSED               [ 28%]
+tests/test_pawpal.py::test_sort_by_time_chronological PASSED             [ 31%]
+tests/test_pawpal.py::test_sort_by_time_numeric_not_lexicographic PASSED [ 34%]
+tests/test_pawpal.py::test_sort_by_time_empty PASSED                     [ 37%]
+tests/test_pawpal.py::test_sort_by_time_midnight_before_untimed PASSED   [ 40%]
+tests/test_pawpal.py::test_sort_by_time_untimed_and_malformed_last PASSED [ 43%]
+tests/test_pawpal.py::test_sort_by_time_does_not_mutate_input PASSED     [ 46%]
+tests/test_pawpal.py::test_detect_conflicts_overlap PASSED               [ 50%]
+tests/test_pawpal.py::test_detect_conflicts_duplicate_time PASSED        [ 53%]
+tests/test_pawpal.py::test_detect_conflicts_none PASSED                  [ 56%]
+tests/test_pawpal.py::test_detect_conflicts_boundary_touch PASSED        [ 59%]
+tests/test_pawpal.py::test_detect_conflicts_ignores_untimed PASSED       [ 62%]
+tests/test_pawpal.py::test_detect_conflicts_empty PASSED                 [ 65%]
+tests/test_pawpal.py::test_detect_conflicts_message_wording PASSED       [ 68%]
+tests/test_pawpal.py::test_generate_orders_by_priority_then_duration PASSED [ 71%]
+tests/test_pawpal.py::test_generate_excludes_completed PASSED            [ 75%]
+tests/test_pawpal.py::test_generate_skips_too_big_keeps_smaller PASSED   [ 78%]
+tests/test_pawpal.py::test_generate_exact_fit PASSED                     [ 81%]
+tests/test_pawpal.py::test_generate_owner_no_pets PASSED                 [ 84%]
+tests/test_pawpal.py::test_generate_zero_budget PASSED                   [ 87%]
+tests/test_pawpal.py::test_generate_populates_conflict_warnings PASSED   [ 90%]
+tests/test_pawpal.py::test_display_empty PASSED                          [ 93%]
+tests/test_pawpal.py::test_display_places_timed_then_chains_untimed PASSED [ 96%]
+tests/test_pawpal.py::test_display_task_without_pet PASSED               [100%]
+
+============================== 32 passed in 0.02s ==============================
 ```
+
+## Confidence level - ★★★★☆ (4 out of 5 stars)
+
+The documented core behavior logics are well-covered and all passing across all the edge cases - recurrence, sorting, conflict detection. 32 deterministic tests in total run in 0.02s. For the parts under test, I feel confident.
+
+However, there are some gaps in the test coverage that keep it from 5 stars. `filter_tasks()` has no tests, malformed times like `"25:00"` are parsed as valid instead of rejected, there's no input validation (negative durations/budgets, empty names), and one test reads the real system clock. So the documented core logic is proven reliable, but the edges of the input space aren't yet.
+
 
 ## 📐 Smarter Scheduling
 
