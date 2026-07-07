@@ -1,6 +1,8 @@
+from datetime import time
+
 import streamlit as st
 
-from pawpal_system import Owner, Pet, Task, Scheduler, Priority
+from pawpal_system import Owner, Pet, Task, Scheduler, Schedule, Priority, start_minute
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -12,40 +14,6 @@ if "owner" not in st.session_state:
 owner = st.session_state["owner"]  # the persistent Owner; reuse it everywhere
 
 st.title("🐾 PawPal+")
-
-st.markdown(
-    """
-Welcome to the PawPal+ starter app.
-
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
-"""
-)
-
-with st.expander("Scenario", expanded=True):
-    st.markdown(
-        """
-**PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
-for their pet(s) based on constraints like time, priority, and preferences.
-
-You will design and implement the scheduling logic and connect it to this Streamlit UI.
-"""
-    )
-
-with st.expander("What you need to build", expanded=True):
-    st.markdown(
-        """
-At minimum, your system should:
-- Represent pet care tasks (what needs to happen, how long it takes, priority)
-- Represent the pet and the owner (basic info and preferences)
-- Build a plan/schedule for a day that chooses and orders tasks based on constraints
-- Explain the plan (why each task was chosen and when it happens)
-"""
-    )
-
-st.divider()
 
 # --- Owner settings ---
 st.subheader("Owner")
@@ -85,27 +53,102 @@ else:
     with col3:
         priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
+    # An optional fixed start time is what lets the Scheduler sort by clock time
+    # and detect overlaps. Without it a task is "untimed" and sorts to the end.
+    has_time = st.checkbox("Set a fixed start time", value=True)
+    start_str = None
+    if has_time:
+        start_str = st.time_input("Start time", value=time(8, 0)).strftime("%H:%M")
+
     if st.button("Add task"):
         pet = owner.pets[pet_names.index(chosen)]
-        pet.add_task(Task(task_title, int(duration), PRIORITY_MAP[priority]))
+        pet.add_task(Task(task_title, int(duration), PRIORITY_MAP[priority], start_time=start_str))
         st.success(f"Added '{task_title}' to {chosen}.")
 
-# --- Show current pets & tasks (below the buttons so new items appear) ---
+# --- Current tasks: filter with Scheduler.filter_tasks, order with sort_by_time ---
 if owner.pets:
-    st.write("Current pets & tasks:")
-    for pet in owner.pets:
-        st.markdown(f"**{pet.name}** ({pet.species}) — {len(pet.tasks)} task(s)")
-        for task in pet.tasks:
-            st.write(f"- {task.name} ({task.duration} min) [{task.priority.name.lower()}]")
+    st.markdown("#### Current tasks")
+    scheduler = Scheduler()
+
+    fcol1, fcol2 = st.columns(2)
+    with fcol1:
+        pet_filter = st.selectbox("Filter by pet", ["All pets"] + [p.name for p in owner.pets])
+    with fcol2:
+        status_filter = st.selectbox("Filter by status", ["All", "Incomplete", "Completed"])
+
+    # None means "don't filter on this"; the Scheduler combines both with AND.
+    tasks = scheduler.filter_tasks(
+        owner.all_tasks(),
+        completed={"All": None, "Incomplete": False, "Completed": True}[status_filter],
+        pet_name=None if pet_filter == "All pets" else pet_filter,
+    )
+    tasks = scheduler.sort_by_time(tasks)   # earliest first, untimed last
+
+    if tasks:
+        st.table(
+            [
+                {
+                    "Time": task.start_time or "—",
+                    "Task": task.name,
+                    "Pet": task.pet.name if task.pet else "Unknown",
+                    "Duration": f"{task.duration} min",
+                    "Priority": task.priority.name.title(),
+                    "Done": "✅" if task.completed else "",
+                }
+                for task in tasks
+            ]
+        )
+    else:
+        st.info("No tasks match these filters.")
 else:
     st.info("No pets yet. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("Calls Scheduler.generate() on your owner and shows the plan.")
+st.caption("Sorts by time, fits tasks into your budget, and flags any conflicts.")
 
 if st.button("Generate schedule"):
-    schedule = Scheduler().generate(owner)   # the scheduling logic
-    st.text(f"Daily plan for {owner.name} (budget: {owner.daily_minutes} min):\n")
-    st.text(schedule.display())
+    scheduler = Scheduler()
+    schedule = scheduler.generate(owner)   # the scheduling logic
+
+    if not schedule.items:
+        st.info("Nothing to plan yet — add tasks that fit inside your daily time budget.")
+    else:
+        # Budget at a glance: how much of the day the plan uses.
+        c1, c2 = st.columns(2)
+        c1.metric("Planned time", f"{schedule.total_minutes} min")
+        c2.metric("Daily budget", f"{owner.daily_minutes} min")
+
+        # Order the selected tasks by clock time (Scheduler.sort_by_time) and lay
+        # them out the same way Schedule.display() does: honor each task's own
+        # start time, and let untimed tasks fall into the running clock after it.
+        st.markdown(f"#### 🗓️ Daily plan for {owner.name}")
+        rows = []
+        clock = Schedule.START_MINUTE
+        for task in scheduler.sort_by_time(schedule.items):
+            sm = start_minute(task)
+            if sm is not None:
+                clock = sm
+            hh, mm = divmod(clock, 60)
+            rows.append(
+                {
+                    "Time": f"{hh:02d}:{mm:02d}",
+                    "Task": task.name,
+                    "Pet": task.pet.name if task.pet else "Unknown",
+                    "Duration": f"{task.duration} min",
+                    "Priority": task.priority.name.title(),
+                }
+            )
+            clock += task.duration
+        st.table(rows)
+
+        # Conflicts are a "look at this," not a failure — so st.warning (amber),
+        # placed right under the plan, with an actionable tip. No conflicts -> reassure.
+        if schedule.warnings:
+            st.markdown("#### ⚠️ Scheduling conflicts")
+            for warning in schedule.warnings:
+                st.warning(warning)
+            st.caption("Tip: shift a start time or shorten a task to clear the overlap.")
+        else:
+            st.success("No scheduling conflicts — you're all set! 🎉")

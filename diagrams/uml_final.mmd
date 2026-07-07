@@ -1,0 +1,62 @@
+classDiagram
+    class Owner {
+        +str name
+        +int daily_minutes
+        +list~Pet~ pets
+        +add_pet(pet: Pet) void
+        +all_tasks() list~Task~
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +list~Task~ tasks
+        +add_task(task: Task) void
+    }
+
+    class Task {
+        +str name
+        +int duration
+        +Priority priority
+        +str frequency
+        +bool completed
+        +str start_time
+        +date due_date
+        +Pet pet
+        +edit(name, duration, priority, frequency, start_time) void
+        +is_recurring() bool
+        +next_due_date() date
+        +mark_complete() Task
+    }
+
+    class Priority {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+    }
+
+    class Scheduler {
+        +generate(owner: Owner) Schedule
+        +sort_by_time(tasks: list~Task~) list~Task~
+        +detect_conflicts(tasks: list~Task~) list~str~
+        +filter_tasks(tasks, completed, pet_name) list~Task~
+    }
+
+    class Schedule {
+        +list~Task~ items
+        +int total_minutes
+        +list~str~ warnings
+        +add(task: Task) void
+        +display() str
+    }
+
+    Owner "1" *-- "*" Pet : owns
+    Pet "1" *-- "*" Task : has
+    Task "*" --> "1" Pet : belongs to
+    Task --> Priority : uses
+    Task ..> Task : spawns next occurrence
+    Scheduler ..> Owner : reads
+    Scheduler ..> Task : sorts / filters / checks
+    Scheduler ..> Schedule : produces
+    Schedule "1" o-- "*" Task : contains

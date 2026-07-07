@@ -22,6 +22,17 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## ✨ Features
+
+PawPal+ implements the following scheduling algorithms (all in `pawpal_system.py`):
+
+- **Priority-based daily planning** — `Scheduler.generate()` greedily fills the owner's daily time budget, placing the highest-priority tasks first and breaking ties by shortest duration, so the most important care still fits when time is tight.
+- **Sorting by time** — `Scheduler.sort_by_time()` orders tasks by their `"HH:MM"` start time using a **numeric** minute-of-day comparison (so `"9:00"` sorts before `"10:00"`, which a plain string sort gets wrong). Untimed tasks are pushed to the end.
+- **Conflict warnings** — `Scheduler.detect_conflicts()` treats each task as a half-open interval `[start, start + duration)` and flags any overlap. It distinguishes a **same-pet** conflict ("Ari can't do two things at once") from a **cross-pet** one ("you can't be with Zimba and White at the same time"), and never crashes on missing/invalid times. A sweep-line early-exit keeps the common case near O(n log n).
+- **Daily & weekly recurrence** — `Task.mark_complete()` auto-spawns the next occurrence of a `daily`/`weekly` task with a fresh due date computed by `Task.next_due_date()` (via `datetime.timedelta`, so month-ends and leap years are handled correctly). Non-recurring tasks spawn nothing.
+- **Filtering** — `Scheduler.filter_tasks()` narrows tasks by pet name and/or completion status, combined with AND logic (each filter is optional).
+- **Time-aware display** — `Schedule.display()` places each task at its own chosen start time rather than repacking from 08:00, and lists any conflict warnings beneath the plan.
+
 ## Getting started
 
 ### Setup
@@ -173,14 +184,77 @@ computed by `next_due_date()` using `datetime.timedelta` (`+1` day for daily,
 repeat; non-recurring tasks (e.g. `"once a month"`) return `None` and spawn
 nothing.
 
-## 📸 Demo Walkthrough
+## 🎬 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### The interface
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+Launch the app with `streamlit run app.py`. The page is organized top-to-bottom as a single workflow:
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+- **Owner** — set the owner's name and a **daily time budget** (in minutes). The budget is the constraint the planner fits tasks into.
+- **Add a pet** — enter a name and pick a species, then **Add pet**. You can add as many pets as you like.
+- **Tasks** — choose a pet, then add a task with a title, duration, priority (low/medium/high), and an **optional fixed start time**. The start time is what enables time-sorting and conflict detection; leave it off for a flexible "untimed" task.
+- **Current tasks** — a live table of every task, with dropdowns to **filter by pet** and **by status** (all / incomplete / completed). The table is always sorted by start time.
+- **Build Schedule** — press **Generate schedule** to produce the day's plan as a table, with **Planned time vs. Daily budget** shown as metrics and any **conflict warnings** listed directly beneath.
+
+### Example workflow
+
+1. Set the owner's daily budget to `120` minutes.
+2. **Add a pet** — "Ari" (cat).
+3. **Add a task** — "Feeding", 5 min, high priority, start time `08:00`.
+4. **Add another task** — "Medicine", 10 min, high priority, also `08:00`.
+5. Open **Current tasks** and filter to **Incomplete** — both tasks appear, sorted by time.
+6. Press **Generate schedule** — the plan table appears, and because both tasks start at 08:00, an **amber conflict warning** shows underneath: *"Ari can't do two things at once."*
+7. Edit one task's start time to `08:10` and regenerate — the warning clears and you get a green **"No scheduling conflicts"** confirmation.
+
+### Key Scheduler behaviors on display
+
+- **Sorting** — tasks entered out of order (e.g. `19:30`, `08:00`, `07:15`) come back earliest-first, with untimed tasks last.
+- **Filtering** — the status/pet dropdowns call `filter_tasks()` to show just what you asked for.
+- **Priority + budget** — the plan fits the highest-priority tasks into the budget first; anything that doesn't fit is skipped.
+- **Conflict warnings** — overlapping times are flagged as same-pet or cross-pet, in plain language.
+- **Recurrence** — completing a daily/weekly task spawns its next occurrence automatically.
+
+### Sample CLI output
+
+`main.py` is a scripted end-to-end demo that seeds three pets with intentionally out-of-order, overlapping, and pre-completed tasks, then exercises each Scheduler method. Running it (`python main.py`) produces:
+
+```text
+1) Sorted by time:
+  [ ]  7:15  Walking (Zimba)
+  [ ] 08:00  Feeding (Ari)
+  [ ] 08:00  Medicine (Ari)
+  [x]  9:00  Feeding (White)
+  [ ] 10:30  Nail trim (White)
+  [ ] 12:00  Brushing (Zimba)
+  [ ] 12:10  Vet visit (White)
+  [ ] 16:45  Playing (White)
+  [x] 18:00  Feeding (Zimba)
+  [ ] 19:30  Shower (Ari)
+  [ ]  None  Buy clothes (Ari)
+
+5) Zimba's incomplete tasks, sorted by time:
+  [ ]  7:15  Walking (Zimba)
+  [ ] 12:00  Brushing (Zimba)
+
+6) Conflict check (all tasks):
+  ⚠️  Conflict: 'Feeding' (08:00, 5 min) overlaps 'Medicine' (08:00, 10 min) — Ari can't do two things at once.
+  ⚠️  Conflict: 'Brushing' (12:00, 15 min) overlaps 'Vet visit' (12:10, 30 min) — you can't be with Zimba and White at the same time.
+
+Daily plan for Yoobin Chang (budget: 120 min):
+
+  07:15 — Walking for Zimba (30 min) [priority: high]
+  08:00 — Feeding for Ari (5 min) [priority: high]
+  08:00 — Medicine for Ari (10 min) [priority: high]
+  12:00 — Brushing for Zimba (15 min) [priority: medium]
+  12:10 — Vet visit for White (30 min) [priority: high]
+  16:45 — Playing for White (10 min) [priority: medium]
+  19:30 — Shower for Ari (20 min) [priority: medium]
+
+Total: 120 min
+
+Warnings:
+  ⚠️  Conflict: 'Feeding' (08:00, 5 min) overlaps 'Medicine' (08:00, 10 min) — Ari can't do two things at once.
+  ⚠️  Conflict: 'Brushing' (12:00, 15 min) overlaps 'Vet visit' (12:10, 30 min) — you can't be with Zimba and White at the same time.
+```
+
+*(Sections 0, 2, 3, and 4 — raw insertion order and the other filter combinations — are omitted here for brevity; run `python main.py` to see the full output.)*
